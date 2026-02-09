@@ -11,6 +11,7 @@
 """BigQuery Batch Job Sink."""
 
 import os
+from decimal import Decimal
 from io import BytesIO
 from mmap import mmap
 from multiprocessing import Process
@@ -19,6 +20,13 @@ from queue import Empty
 from typing import Any, Dict, Optional, Type, Union, cast
 
 import orjson
+
+
+def _decimal_default(obj):
+    """Handle Decimal serialization for orjson."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Type is not JSON serializable: {type(obj)}")
 from google.cloud import bigquery
 
 from target_bigquery.core import (
@@ -118,7 +126,7 @@ class BigQueryBatchJobSink(BaseBigQuerySink):
         return cast(Type[BatchJobThreadWorker], Worker)
 
     def process_record(self, record: Dict[str, Any], context: Dict[str, Any]) -> None:
-        self.buffer.write(orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE))
+        self.buffer.write(orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE, default=_decimal_default))
 
     def process_batch(self, context: Dict[str, Any]) -> None:
         self.buffer.close()
